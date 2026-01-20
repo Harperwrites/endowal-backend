@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Assignment
+from app.deps import get_current_user, require_roles
+from app.models import Assignment, User
 from app.schemas.assignment import AssignmentCreate, AssignmentOut, AssignmentUpdate
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
@@ -23,6 +24,7 @@ def list_assignments(
     created_by: int | None = None,
     status_filter: str | None = None,
     db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
 ):
     query = db.query(Assignment)
     if classroom_id is not None:
@@ -35,8 +37,15 @@ def list_assignments(
 
 
 @router.post("", response_model=AssignmentOut, status_code=status.HTTP_201_CREATED)
-def create_assignment(payload: AssignmentCreate, db: Session = Depends(get_db)):
-    assignment = Assignment(**payload.model_dump())
+def create_assignment(
+    payload: AssignmentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("teacher", "admin")),
+):
+    data = payload.model_dump()
+    if current_user.role == "teacher":
+        data["created_by"] = current_user.id
+    assignment = Assignment(**data)
     db.add(assignment)
     db.commit()
     db.refresh(assignment)
@@ -44,15 +53,24 @@ def create_assignment(payload: AssignmentCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{assignment_id}", response_model=AssignmentOut)
-def get_assignment(assignment_id: int, db: Session = Depends(get_db)):
+def get_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     return _get_or_404(db, assignment_id)
 
 
 @router.patch("/{assignment_id}", response_model=AssignmentOut)
 def update_assignment(
-    assignment_id: int, payload: AssignmentUpdate, db: Session = Depends(get_db)
+    assignment_id: int,
+    payload: AssignmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("teacher", "admin")),
 ):
     assignment = _get_or_404(db, assignment_id)
+    if current_user.role == "teacher" and assignment.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     updates = payload.model_dump(exclude_unset=True)
     for key, value in updates.items():
         setattr(assignment, key, value)
@@ -62,8 +80,14 @@ def update_assignment(
 
 
 @router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_assignment(assignment_id: int, db: Session = Depends(get_db)):
+def delete_assignment(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("teacher", "admin")),
+):
     assignment = _get_or_404(db, assignment_id)
+    if current_user.role == "teacher" and assignment.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     db.delete(assignment)
     db.commit()
     return None

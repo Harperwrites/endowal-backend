@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.security import get_password_hash
 from app.db.session import get_db
+from app.deps import get_current_user, require_roles
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserUpdate
 
@@ -22,6 +24,7 @@ def list_users(
     role: str | None = None,
     email: str | None = None,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
 ):
     query = db.query(User)
     if role:
@@ -32,13 +35,17 @@ def list_users(
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
     user = User(
         email=payload.email,
         name=payload.name,
         role=payload.role,
         is_active=payload.is_active,
-        password_hash=payload.password,
+        password_hash=get_password_hash(payload.password),
     )
     db.add(user)
     db.commit()
@@ -47,14 +54,29 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}", response_model=UserOut)
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return _get_or_404(db, user_id)
 
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user = _get_or_404(db, user_id)
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     updates = payload.model_dump(exclude_unset=True)
+    if "role" in updates and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to change role")
     for key, value in updates.items():
         setattr(user, key, value)
     db.commit()
@@ -63,7 +85,11 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
     user = _get_or_404(db, user_id)
     db.delete(user)
     db.commit()

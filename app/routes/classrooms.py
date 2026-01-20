@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Classroom
+from app.deps import get_current_user, require_roles
+from app.models import Classroom, User
 from app.schemas.classroom import ClassroomCreate, ClassroomOut, ClassroomUpdate
 
 router = APIRouter(prefix="/classrooms", tags=["classrooms"])
@@ -21,6 +22,7 @@ def list_classrooms(
     limit: int = 100,
     teacher_id: int | None = None,
     db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
 ):
     query = db.query(Classroom)
     if teacher_id is not None:
@@ -29,8 +31,15 @@ def list_classrooms(
 
 
 @router.post("", response_model=ClassroomOut, status_code=status.HTTP_201_CREATED)
-def create_classroom(payload: ClassroomCreate, db: Session = Depends(get_db)):
-    classroom = Classroom(**payload.model_dump())
+def create_classroom(
+    payload: ClassroomCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("teacher", "admin")),
+):
+    data = payload.model_dump()
+    if current_user.role == "teacher":
+        data["teacher_id"] = current_user.id
+    classroom = Classroom(**data)
     db.add(classroom)
     db.commit()
     db.refresh(classroom)
@@ -38,15 +47,24 @@ def create_classroom(payload: ClassroomCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{classroom_id}", response_model=ClassroomOut)
-def get_classroom(classroom_id: int, db: Session = Depends(get_db)):
+def get_classroom(
+    classroom_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     return _get_or_404(db, classroom_id)
 
 
 @router.patch("/{classroom_id}", response_model=ClassroomOut)
 def update_classroom(
-    classroom_id: int, payload: ClassroomUpdate, db: Session = Depends(get_db)
+    classroom_id: int,
+    payload: ClassroomUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("teacher", "admin")),
 ):
     classroom = _get_or_404(db, classroom_id)
+    if current_user.role == "teacher" and classroom.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     updates = payload.model_dump(exclude_unset=True)
     for key, value in updates.items():
         setattr(classroom, key, value)
@@ -56,8 +74,14 @@ def update_classroom(
 
 
 @router.delete("/{classroom_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_classroom(classroom_id: int, db: Session = Depends(get_db)):
+def delete_classroom(
+    classroom_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("teacher", "admin")),
+):
     classroom = _get_or_404(db, classroom_id)
+    if current_user.role == "teacher" and classroom.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     db.delete(classroom)
     db.commit()
     return None

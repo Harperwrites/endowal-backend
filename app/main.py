@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.routes import (
     assignments_router,
+    auth_router,
     budget_line_items_router,
     budget_submissions_router,
     buckets_router,
@@ -14,6 +15,7 @@ from app.routes import (
 
 app = FastAPI(title="Endowal API")
 
+app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(classrooms_router)
 app.include_router(enrollments_router)

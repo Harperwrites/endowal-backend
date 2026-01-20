@@ -49,3 +49,6 @@ __all__ = [
     "WalletBucketOut",
     "WalletBucketUpdate",
 ]
+from app.schemas.auth import LoginRequest, Token
+    "LoginRequest",
+    "Token",

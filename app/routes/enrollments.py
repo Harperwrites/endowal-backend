@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Enrollment
+from app.deps import get_current_user, require_roles
+from app.models import Enrollment, User
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentOut, EnrollmentUpdate
 
 router = APIRouter(prefix="/enrollments", tags=["enrollments"])
@@ -22,7 +23,12 @@ def list_enrollments(
     classroom_id: int | None = None,
     student_id: int | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role == "student":
+        if student_id is not None and student_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        student_id = current_user.id
     query = db.query(Enrollment)
     if classroom_id is not None:
         query = query.filter(Enrollment.classroom_id == classroom_id)
@@ -32,7 +38,11 @@ def list_enrollments(
 
 
 @router.post("", response_model=EnrollmentOut, status_code=status.HTTP_201_CREATED)
-def create_enrollment(payload: EnrollmentCreate, db: Session = Depends(get_db)):
+def create_enrollment(
+    payload: EnrollmentCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("teacher", "admin")),
+):
     enrollment = Enrollment(**payload.model_dump())
     db.add(enrollment)
     db.commit()
@@ -41,13 +51,23 @@ def create_enrollment(payload: EnrollmentCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{enrollment_id}", response_model=EnrollmentOut)
-def get_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
-    return _get_or_404(db, enrollment_id)
+def get_enrollment(
+    enrollment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    enrollment = _get_or_404(db, enrollment_id)
+    if current_user.role == "student" and enrollment.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return enrollment
 
 
 @router.patch("/{enrollment_id}", response_model=EnrollmentOut)
 def update_enrollment(
-    enrollment_id: int, payload: EnrollmentUpdate, db: Session = Depends(get_db)
+    enrollment_id: int,
+    payload: EnrollmentUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("teacher", "admin")),
 ):
     enrollment = _get_or_404(db, enrollment_id)
     updates = payload.model_dump(exclude_unset=True)
@@ -59,7 +79,11 @@ def update_enrollment(
 
 
 @router.delete("/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_enrollment(enrollment_id: int, db: Session = Depends(get_db)):
+def delete_enrollment(
+    enrollment_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("teacher", "admin")),
+):
     enrollment = _get_or_404(db, enrollment_id)
     db.delete(enrollment)
     db.commit()
