@@ -25,3 +25,27 @@ alembic upgrade head
 ```bash
 uvicorn app.main:app --reload
 ```
+
+## Seed demo data
+
+```bash
+python scripts/seed_demo.py
+```
+
+Reset + seed (drops and recreates tables):
+
+```bash
+python scripts/seed_demo.py --reset
+```
+
+### Demo request script
+
+```bash
+bash scripts/demo_requests.sh
+```
+
+Environment overrides:
+
+- `BASE_URL` (default `http://127.0.0.1:8000`)
+- `EMAIL` (default `teacher@endowal.app`)
+- `PASSWORD` (default `Teacher123!`)
