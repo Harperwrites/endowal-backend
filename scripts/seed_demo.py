@@ -1,4 +1,5 @@
 import argparse
+import os
 from datetime import date
 from decimal import Decimal
 
@@ -30,6 +31,26 @@ def get_or_create(db, model, defaults=None, **filters):
 
 
 def seed(reset: bool = False) -> None:
+    admin_email = os.getenv("ENDOWAL_ADMIN_EMAIL", "admin@endowal.app")
+    admin_password = os.getenv("ENDOWAL_ADMIN_PASSWORD", "Admin123!")
+    teacher_email = os.getenv("ENDOWAL_TEACHER_EMAIL", "teacher@endowal.app")
+    teacher_password = os.getenv("ENDOWAL_TEACHER_PASSWORD", "Teacher123!")
+    student_password = os.getenv("ENDOWAL_STUDENT_PASSWORD", "Student123!")
+    student_emails = os.getenv(
+        "ENDOWAL_STUDENT_EMAILS",
+        "student1@endowal.app,student2@endowal.app,student3@endowal.app",
+    )
+    student_names = os.getenv(
+        "ENDOWAL_STUDENT_NAMES",
+        "Jordan Lee,Avery Patel,Kai Brooks",
+    )
+    student_email_list = [email.strip() for email in student_emails.split(",") if email.strip()]
+    student_name_list = [name.strip() for name in student_names.split(",") if name.strip()]
+    if len(student_name_list) < len(student_email_list):
+        student_name_list.extend(
+            [f"Student {idx}" for idx in range(len(student_name_list) + 1, len(student_email_list) + 1)]
+        )
+
     if reset:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
@@ -39,36 +60,36 @@ def seed(reset: bool = False) -> None:
         admin, _ = get_or_create(
             db,
             User,
-            email="admin@endowal.app",
+            email=admin_email,
             defaults={
                 "name": "Admin User",
                 "role": "admin",
                 "is_active": True,
-                "password_hash": get_password_hash("Admin123!"),
+                "password_hash": get_password_hash(admin_password),
             },
         )
         teacher, _ = get_or_create(
             db,
             User,
-            email="teacher@endowal.app",
+            email=teacher_email,
             defaults={
                 "name": "Ms. Rivera",
                 "role": "teacher",
                 "is_active": True,
-                "password_hash": get_password_hash("Teacher123!"),
+                "password_hash": get_password_hash(teacher_password),
             },
         )
         students = []
-        for idx, name in enumerate(["Jordan Lee", "Avery Patel", "Kai Brooks"], start=1):
+        for idx, (email, name) in enumerate(zip(student_email_list, student_name_list), start=1):
             student, _ = get_or_create(
                 db,
                 User,
-                email=f"student{idx}@endowal.app",
+                email=email,
                 defaults={
                     "name": name,
                     "role": "student",
                     "is_active": True,
-                    "password_hash": get_password_hash("Student123!"),
+                    "password_hash": get_password_hash(student_password),
                 },
             )
             students.append(student)
