@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.core.accounting import lock_wallet, signed, check_balance
 from app.deps import get_current_user, require_roles
-from app.models import Classroom, LedgerEntry, StudentWallet, User
+from app.models import Classroom, LedgerEntry, StudentWallet, User, Assignment
 from app.schemas.ledger import LedgerEntryCreate, LedgerEntryOut, LedgerEntryUpdate
 
 router = APIRouter(prefix="/ledger-entries", tags=["ledger-entries"])
@@ -38,6 +39,13 @@ def _ensure_wallet_access(db: Session, wallet: StudentWallet, current_user: User
         _ensure_classroom_access(db, wallet.classroom_id, current_user)
 
 
+def validate_assignment(db, wallet, assignment_id):
+    if assignment_id is None: return
+    assignment = db.get(Assignment, assignment_id)
+    if not assignment or assignment.classroom_id != wallet.classroom_id:
+        raise HTTPException(400, "Assignment must belong to this wallet’s classroom")
+
+
 @router.get("", response_model=list[LedgerEntryOut])
 def list_ledger_entries(
     skip: int = 0,
@@ -64,7 +72,7 @@ def list_ledger_entries(
         query = query.filter(LedgerEntry.wallet_id == wallet_id)
     if assignment_id is not None:
         query = query.filter(LedgerEntry.assignment_id == assignment_id)
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(LedgerEntry.id.desc()).offset(skip).limit(limit).all()
 
 
 @router.post("", response_model=LedgerEntryOut, status_code=status.HTTP_201_CREATED)
@@ -75,6 +83,9 @@ def create_ledger_entry(
 ):
     wallet = _get_wallet_or_404(db, payload.wallet_id)
     _ensure_wallet_access(db, wallet, current_user)
+    wallet = lock_wallet(db, wallet.id)
+    check_balance(wallet, signed(payload.amount, payload.entry_type))
+    validate_assignment(db, wallet, payload.assignment_id)
     entry = LedgerEntry(**payload.model_dump())
     db.add(entry)
     db.commit()
@@ -104,7 +115,17 @@ def update_ledger_entry(
     entry = _get_or_404(db, entry_id)
     wallet = _get_wallet_or_404(db, entry.wallet_id)
     _ensure_wallet_access(db, wallet, current_user)
+    wallet = lock_wallet(db, wallet.id)
+    db.refresh(entry)
+    if entry.transfer_id:
+        raise HTTPException(400, "Transfer entries cannot be changed individually")
     updates = payload.model_dump(exclude_unset=True)
+    if any(updates.get(key, "present") is None for key in ("amount", "entry_type", "source")):
+        raise HTTPException(422, "Amount, type, and source cannot be null")
+    if "assignment_id" in updates:
+        validate_assignment(db, wallet, updates["assignment_id"])
+    delta = signed(updates.get("amount", entry.amount), updates.get("entry_type", entry.entry_type)) - signed(entry.amount, entry.entry_type)
+    check_balance(wallet, delta)
     for key, value in updates.items():
         setattr(entry, key, value)
     db.commit()
@@ -121,6 +142,11 @@ def delete_ledger_entry(
     entry = _get_or_404(db, entry_id)
     wallet = _get_wallet_or_404(db, entry.wallet_id)
     _ensure_wallet_access(db, wallet, current_user)
+    wallet = lock_wallet(db, wallet.id)
+    db.refresh(entry)
+    if entry.transfer_id:
+        raise HTTPException(400, "Transfer entries cannot be changed individually")
+    check_balance(wallet, -signed(entry.amount, entry.entry_type))
     db.delete(entry)
     db.commit()
     return None

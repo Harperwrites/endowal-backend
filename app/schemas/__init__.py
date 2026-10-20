@@ -1,4 +1,5 @@
 from app.schemas.assignment import AssignmentCreate, AssignmentOut, AssignmentUpdate
+from app.schemas.auth import LoginRequest, Token
 from app.schemas.budget import (
     BudgetLineItemCreate,
     BudgetLineItemOut,
@@ -48,7 +49,6 @@ __all__ = [
     "WalletBucketCreate",
     "WalletBucketOut",
     "WalletBucketUpdate",
-]
-from app.schemas.auth import LoginRequest, Token
     "LoginRequest",
     "Token",
+]

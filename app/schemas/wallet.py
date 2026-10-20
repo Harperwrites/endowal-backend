@@ -1,4 +1,5 @@
-from pydantic import BaseModel, ConfigDict
+from decimal import Decimal
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StudentWalletBase(BaseModel):
@@ -12,7 +13,7 @@ class StudentWalletBase(BaseModel):
 
     classroom_id: int
     student_id: int
-    balance: float = 0
+    balance: Decimal = Field(default=Decimal("0.00"), ge=0, max_digits=12, decimal_places=2)
 
 
 class StudentWalletCreate(StudentWalletBase):
@@ -30,6 +31,8 @@ class StudentWalletUpdate(BaseModel):
 
 
 class StudentWalletOut(StudentWalletBase):
+    balance: Decimal
+
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={

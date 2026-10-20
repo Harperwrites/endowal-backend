@@ -1,5 +1,6 @@
-from sqlalchemy import Integer, Numeric, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Integer, Numeric, String, UniqueConstraint, select, func, case
+from sqlalchemy.orm import Mapped, mapped_column, column_property
+from app.models.ledger import LedgerEntry
 
 from app.db.base import Base
 
@@ -13,7 +14,14 @@ class StudentWallet(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     classroom_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     student_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    balance: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # Keep the legacy column for schema compatibility; the ledger is authoritative.
+    legacy_balance: Mapped[float] = mapped_column("balance", Numeric(12, 2), nullable=False, default=0)
+    balance = column_property(
+        select(func.coalesce(func.sum(case(
+            (LedgerEntry.entry_type == "deposit", LedgerEntry.amount),
+            else_=-LedgerEntry.amount,
+        )), 0)).where(LedgerEntry.wallet_id == id).correlate_except(LedgerEntry).scalar_subquery()
+    )
 
 
 class WalletBucket(Base):

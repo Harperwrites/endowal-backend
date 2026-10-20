@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from decimal import Decimal
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LedgerEntryBase(BaseModel):
@@ -19,9 +21,9 @@ class LedgerEntryBase(BaseModel):
 
     wallet_id: int
     assignment_id: int | None = None
-    amount: float
-    entry_type: str
-    source: str
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    entry_type: Literal["deposit", "withdrawal"]
+    source: Literal["teacher_grant", "student_action"]
     memo: str | None = None
 
 
@@ -35,13 +37,16 @@ class LedgerEntryUpdate(BaseModel):
     )
 
     assignment_id: int | None = None
-    amount: float | None = None
-    entry_type: str | None = None
-    source: str | None = None
+    amount: Decimal = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    entry_type: Literal["deposit", "withdrawal"] = None
+    source: Literal["teacher_grant", "student_action"] = None
     memo: str | None = None
 
 
 class LedgerEntryOut(LedgerEntryBase):
+    transfer_id: str | None = None
+    assignment_title: str | None = None
+
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
