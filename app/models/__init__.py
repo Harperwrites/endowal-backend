@@ -1,3 +1,4 @@
+from app.models.credit import CreditProfile, CreditAccount
 from app.models.auth_session import AuthSession
 from app.models.workflow import AssignmentSubmission, Message
 from app.models.grade import Grade

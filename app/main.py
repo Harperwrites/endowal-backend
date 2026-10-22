@@ -1,3 +1,4 @@
+from app.routes.credit import router as credit_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.learning import router as learning_router
 from app.routes.messages import router as messages_router
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(credit_router)
 app.include_router(dashboard_router)
 app.include_router(learning_router)
 app.include_router(messages_router)

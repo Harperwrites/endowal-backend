@@ -223,3 +223,18 @@ Assignment titles appear in Bank activity, teacher statements, and dashboard
 previews. The assignment page links to Bank with its classroom and assignment
 preselected. Student expenses use the existing locked balance checks and cannot
 overdraft an account. Students cannot edit or delete ledger history.
+
+## Fictional credit data
+
+After applying migrations, run `.venv/bin/python -m scripts.seed_credit` to add
+credit snapshots to existing demo users. The full workflow seed also runs it.
+This adds 11 profiles and 22 practice accounts when all default demo users exist.
+Reruns preserve existing profiles and accounts. The snapshot date is 2026-10-21.
+
+`GET /credit/profile` returns only the authenticated user’s fictional profile.
+Account totals, unused credit, utilization, and payment percentages are calculated
+from the saved accounts using decimal arithmetic. Scores are assigned examples,
+not a bureau scoring model. Credit accounts are separate from classroom wallets;
+seeding them does not create bank transactions or change bank balances. The
+Credit gauges, report, and dashboard preview show the saved profile, while the
+interactive practice slider remains a temporary learning example.

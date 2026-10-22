@@ -44,6 +44,8 @@ def seed_workflow():
                 for sender,recipient,body in [(teacher,student,f"Welcome to {room.name}! Open Assignments to view the missions, and send me a message if you need help."),(student,teacher,"Thanks! I can see the assignments. Could you check my budget explanation when I turn it in?")]:
                     get_or_create(db,Message,classroom_id=room.id,sender_id=sender.id,recipient_id=recipient.id,body=body)
         db.commit()
+        from scripts.seed_credit import seed_credit
+        seed_credit()
         print("Workflow demo ready: 2 teachers, 8 students, 4 classrooms plus existing data.")
         print("Teachers: teacher@endowal.app / teacher2@endowal.app — Teacher123!")
         print("Students: student1@endowal.app through student8@endowal.app — Student123!")
