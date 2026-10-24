@@ -10,11 +10,16 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    op.execute(sa.text("""
+    entry_type = "CASE WHEN w.balance > 0 THEN 'deposit' ELSE 'withdrawal' END"
+    source = "'teacher_grant'"
+    if op.get_context().dialect.name == "postgresql":
+        entry_type = f"CAST(({entry_type}) AS ledger_entry_type)"
+        source = f"CAST({source} AS ledger_entry_source)"
+    op.execute(sa.text(f"""
         INSERT INTO ledger_entries (wallet_id, amount, entry_type, source, memo)
         SELECT w.id, abs(w.balance),
-               CASE WHEN w.balance > 0 THEN 'deposit' ELSE 'withdrawal' END,
-               'teacher_grant', 'Opening balance carried forward'
+               {entry_type},
+               {source}, 'Opening balance carried forward'
         FROM student_wallets w
         WHERE w.balance != 0 AND NOT EXISTS
             (SELECT 1 FROM ledger_entries e WHERE e.wallet_id = w.id)
