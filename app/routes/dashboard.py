@@ -8,6 +8,7 @@ from app.models import User, Classroom, Enrollment, Assignment, Grade, StudentWa
 from app.models.workflow import AssignmentSubmission
 from app.routes.learning import classrooms
 from app.routes.credit import credit_snapshot
+from app.core.config import settings
 router=APIRouter(prefix="/dashboard",tags=["dashboard"])
 
 def utc(value): return value.replace(tzinfo=timezone.utc)
@@ -36,7 +37,7 @@ def summary(db:Session=Depends(get_db),user:User=Depends(get_current_user)):
     activity=db.query(LedgerEntry).filter(LedgerEntry.wallet_id.in_([w.id for w in wallet_rows])).order_by(LedgerEntry.id.desc()).limit(3).all()
     earned=sum((g.points_earned for g in graded),Decimal(0));possible=sum((g.points_possible for g in graded),Decimal(0))
     active_students=db.query(Enrollment.student_id).filter(Enrollment.classroom_id.in_(ids),Enrollment.status=="active").distinct().count()
-    return {"credit":credit_snapshot(db,user.id),"balance":str(sum((w.balance for w in wallet_rows),Decimal(0))),"account_count":len(wallet_rows),"classrooms":rooms,"student_count":active_students,
+    return {"credit":credit_snapshot(db,user.id) if settings.credit_enabled else None,"balance":str(sum((w.balance for w in wallet_rows),Decimal(0))),"account_count":len(wallet_rows),"classrooms":rooms,"student_count":active_students,
             "assignment_count":len(assignments),"todo_count":sum(1 for a in assignments if a.status in ("active","published") and a.id not in submitted_ids) if student else 0,
             "turned_in_count":len(submitted),"review_count":pending_reviews,"grade_count":len(graded),"earned":str(earned),"possible":str(possible),
             "assignments":task_rows,"activity":[{"id":e.id,"memo":e.memo or e.entry_type,"assignment_title":e.assignment_title,"type":e.entry_type,"amount":str(e.amount)} for e in activity]}

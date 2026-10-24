@@ -9,6 +9,9 @@ from app.core.security import get_password_hash
 from scripts.seed_demo import get_or_create, seed
 
 def seed_workflow():
+    from app.core.config import settings
+    if settings.client_id != "endowal" or settings.deployment_environment != "development":
+        raise RuntimeError("Demo seeding is limited to the Endowal development deployment")
     seed()
     base = date.fromisoformat(os.getenv("ENDOWAL_DEMO_DATE", "2026-10-19"))
     with SessionLocal() as db:

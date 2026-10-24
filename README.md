@@ -238,3 +238,24 @@ not a bureau scoring model. Credit accounts are separate from classroom wallets;
 seeding them does not create bank transactions or change bank balances. The
 Credit gauges, report, and dashboard preview show the saved profile, while the
 interactive practice slider remains a temporary learning example.
+
+## Public landing page
+
+The frontend root URL is a public marketing page with a browser-local student /
+teacher demo. Demo deposits, expenses, assignment responses, grades, and messages
+remain in React state and do not change real accounts or the database. Reset or
+reload restores the fictional classroom.
+
+`POST /interest` accepts a nonbinding investor, donor, or school interest request.
+It stores the contact details in `interest_requests`; it does not send email,
+process payments, or create a financial commitment. `GET /interest` is admin-only
+and returns the newest 200 requests for review. Apply migration
+`0009_interest_requests` before enabling the form.
+
+## Client branding and licensing foundation
+
+See [CLIENT_DEPLOYMENTS.md](CLIENT_DEPLOYMENTS.md) for the dedicated-client
+architecture, frontend profile configuration, license/parent-license metadata,
+initial-administrator provisioning, and production settings. `.env.example`
+contains nonsecret configuration examples. This foundation isolates deployments;
+it does not implement a central licensing/billing service.

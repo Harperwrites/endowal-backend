@@ -3,8 +3,9 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from app.models.auth_session import AuthSession
 from app.models import User
+from app.core.config import settings
 
-COOKIE = "endowal_session"
+COOKIE = "endowal_session" if settings.client_id == "endowal" else f"endowal_{settings.client_id}_session"
 DAYS = 30
 
 def digest(token): return hashlib.sha256(token.encode()).hexdigest()

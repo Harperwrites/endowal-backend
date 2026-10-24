@@ -1,3 +1,5 @@
+from app.models.deployment import ClientDeployment
+from app.models.interest import InterestRequest
 from app.models.credit import CreditProfile, CreditAccount
 from app.models.auth_session import AuthSession
 from app.models.workflow import AssignmentSubmission, Message

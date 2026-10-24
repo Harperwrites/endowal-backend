@@ -31,6 +31,9 @@ def get_or_create(db, model, defaults=None, **filters):
 
 
 def seed(reset: bool = False) -> None:
+    from app.core.config import settings
+    if settings.client_id != "endowal" or settings.deployment_environment != "development":
+        raise RuntimeError("Demo seeding is limited to the Endowal development deployment")
     admin_email = os.getenv("ENDOWAL_ADMIN_EMAIL", "admin@endowal.app")
     admin_password = os.getenv("ENDOWAL_ADMIN_PASSWORD", "Admin123!")
     teacher_email = os.getenv("ENDOWAL_TEACHER_EMAIL", "teacher@endowal.app")

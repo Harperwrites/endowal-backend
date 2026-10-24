@@ -7,6 +7,9 @@ from app.models.credit import CreditProfile,CreditAccount
 from scripts.seed_demo import get_or_create
 
 def seed_credit():
+    from app.core.config import settings
+    if settings.client_id != "endowal" or settings.deployment_environment != "development":
+        raise RuntimeError("Demo seeding is limited to the Endowal development deployment")
     emails=[f"student{i}@endowal.app" for i in range(1,9)]+["teacher@endowal.app","teacher2@endowal.app","admin@endowal.app"]
     scores=[720,685,760,640,705,790,665,735,780,750,770]
     as_of=date(2026,10,21)
