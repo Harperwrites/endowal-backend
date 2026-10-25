@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     credit_enabled: bool = True
     messaging_enabled: bool = True
     interest_enabled: bool = True
+    session_cookie_path: str | None = None
     @model_validator(mode="after")
     def production_identity(self):
         if self.deployment_environment == "production":

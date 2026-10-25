@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from app.core.sessions import COOKIE, remember, session_user, digest
+from app.core.sessions import COOKIE, COOKIE_PATH, remember, session_user, digest
 from app.models.auth_session import AuthSession
 from app.core.config import settings
 from sqlalchemy.orm import Session
@@ -78,5 +78,6 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     if token:
         db.query(AuthSession).filter_by(token_hash=digest(token)).delete()
         db.commit()
-    response.delete_cookie(COOKIE, path="/auth", httponly=True, samesite="lax")
+    response.delete_cookie(COOKIE, path=COOKIE_PATH, httponly=True, samesite="lax",
+                           secure=settings.deployment_environment == "production" or request.url.scheme == "https")
     return {"status":"signed out"}

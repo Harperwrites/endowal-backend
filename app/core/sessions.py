@@ -7,6 +7,7 @@ from app.core.config import settings
 
 COOKIE = "endowal_session" if settings.client_id == "endowal" else f"endowal_{settings.client_id}_session"
 DAYS = 30
+COOKIE_PATH = settings.session_cookie_path or ("/api/backend/auth" if settings.deployment_environment == "production" else "/auth")
 
 def digest(token): return hashlib.sha256(token.encode()).hexdigest()
 
@@ -28,4 +29,5 @@ def remember(db, user, request, response):
     db.add(AuthSession(user_id=user.id, token_hash=digest(raw), expires_at=datetime.now(timezone.utc)+timedelta(days=DAYS)))
     db.commit()
     response.set_cookie(COOKIE, raw, max_age=DAYS*86400, httponly=True,
-                        secure=request.url.scheme == "https", samesite="lax", path="/auth")
+                        secure=settings.deployment_environment == "production" or request.url.scheme == "https",
+                        samesite="lax", path=COOKIE_PATH)
